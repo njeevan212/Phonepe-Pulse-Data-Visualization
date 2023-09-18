@@ -1,7 +1,4 @@
-#import git
 from git.repo.base import Repo
-import os
-import json
 import pandas as pd
 import mysql.connector 
 from mysql.connector import Error
@@ -11,7 +8,7 @@ import streamlit.components.v1 as html
 from  PIL import Image
 import plotly.express as px
 
-#streamlit run /home/quest/GVA/pythonProj/Projects/Utube-data-harvest/main.py 
+#streamlit run main.py 
 
 #Clone data from Phonepe pulse repo
 #Repo.clone_from("https://github.com/PhonePe/pulse.git", "/home/jeeva/Projects/python/PhonePe_Pulse/phonepe_data/")
@@ -44,11 +41,88 @@ with st.sidebar:
     s_type = st.sidebar.selectbox('Type',["Transactions", "Users"], index=0)
 
 if choose == "Aggregated Data":
-    st.header('Aggregated Data')
+    
+    if s_type == "Transactions":
+        
+        cursor.execute(f"""SELECT CONCAT(UPPER(LEFT(State,1)) ,
+                       LOWER(RIGHT(State,LENGTH(State)-1))) as State, 
+                       SUM(Total_Transaction) as Total_Transaction, 
+                       SUM(Total_Amount) as Total_Amount
+                       FROM phonpe_pulse.agg_trans 
+                       WHERE Year = {s_year} and Quarter = {s_quarter} GROUP BY State 
+                       ORDER BY Total_Amount DESC LIMIT 10""")
+        df = pd.DataFrame(cursor.fetchall(), columns=['State', 'Total_Transaction','Total_Amount'])
+        
+        st.write("### :green[Top 10 States Vs Total_Amount]")
+        fig = px.bar(df,
+                     x='State',
+                     y='Total_Amount',
+                     orientation='v',
+                     hover_data=['Total_Transaction'],
+                     color=cursor.column_names[0]
+                    )
+        st.plotly_chart(fig,use_container_width=True)
+        
+        cursor.execute(f"""SELECT Transaction_Type, 
+                       SUM(Total_Transaction) as Total_Transaction, 
+                       SUM(Total_Amount) as Total_Amount
+                       FROM phonpe_pulse.agg_trans 
+                       WHERE Year = {s_year} and Quarter = {s_quarter} GROUP BY Transaction_Type 
+                       ORDER BY Total_Amount DESC""")
+        df = pd.DataFrame(cursor.fetchall(), columns=['Transaction_Type', 'Total_Transaction','Total_Amount'])
+        
+        st.write("### :green[Transaction_Type Vs Transaction Amount]")
+        fig = px.pie(df, values='Total_Amount',
+                             names='Transaction_Type',
+                             color_discrete_sequence=px.colors.sequential.Agsunset,
+                             hover_data=['Total_Transaction'],
+                             labels={'Total_Transaction':'Total_Transaction'})
+
+        fig.update_traces(textposition='inside', textinfo='percent+label')
+        st.plotly_chart(fig,use_container_width=True)
+        
+    if s_type == "Users":
+        
+        cursor.execute(f"""SELECT CONCAT(UPPER(LEFT(State,1)) ,
+                       LOWER(RIGHT(State,LENGTH(State)-1))) as State, 
+                       Mobile_Brand, 
+                       SUM(Brand_User_Count) as Brand_User_Count
+                       FROM phonpe_pulse.agg_user 
+                       WHERE Year = {s_year} and Quarter = {s_quarter} GROUP BY State, Mobile_Brand 
+                       ORDER BY Brand_User_Count DESC LIMIT 50""")
+        df = pd.DataFrame(cursor.fetchall(), columns=['State','Mobile_Brand', 'Brand_User_Count'])
+        
+    
+        st.write("### :green[State Vs Brand's Count]")
+        fig = px.bar(df,
+                     x='State',
+                     y='Brand_User_Count',
+                     orientation='v',
+                     color='Mobile_Brand'
+                    )
+        st.plotly_chart(fig,use_container_width=True)
+        
+        cursor.execute(f"""SELECT Mobile_Brand, 
+                       SUM(Brand_User_Count) as Brand_User_Count, 
+                       SUM(Percentage) as Percentage
+                       FROM phonpe_pulse.agg_user 
+                       WHERE Year = {s_year} and Quarter = {s_quarter} GROUP BY Mobile_Brand 
+                       ORDER BY Percentage DESC LIMIT 10""")
+        df = pd.DataFrame(cursor.fetchall(), columns=['Mobile_Brand', 'Brand_User_Count','Percentage'])
+        
+        st.write("### :green[Top 10 Mobile_Brand Vs Brand_User_Count]")
+        fig = px.bar(df,
+                     x='Mobile_Brand',
+                     y='Brand_User_Count',
+                     orientation='v',
+                     hover_data=['Percentage'],
+                     color=cursor.column_names[0]
+                    )
+        st.plotly_chart(fig,use_container_width=True)
     
     
 elif choose == "Map Data":
-    st.header('Map Data')
+    
     
     if s_type == "Transactions":
         #print(s_year)
@@ -133,7 +207,7 @@ elif choose == "Map Data":
         st.plotly_chart(fig,use_container_width=True)
     
 elif choose == "Top Data":
-    st.header('Top Data')
+    
     
     if s_type == "Transactions":
         #print(s_year)
@@ -210,10 +284,9 @@ elif choose == "Top Data":
         st.plotly_chart(fig,use_container_width=True)
         
 elif choose == "India Geo":
-    st.header('Top Data')
+    
     if s_type == "Transactions":
-        #st.markdown("## :violet[Overall State Data - Transactions Amount]")
-        st.markdown("## :green[Overall State Data Vs Transactions Amount]")
+        st.markdown("## :green[All State Vs Transactions Amount]")
         cursor.execute(f"""SELECT State, 
                        SUM(Count) as Total_Transactions, 
                        SUM(amount) as Total_amount 
@@ -222,8 +295,8 @@ elif choose == "India Geo":
                        GROUP BY State 
                        ORDER BY State""")
         df1 = pd.DataFrame(cursor.fetchall(),columns= ['State', 'Total_Transactions', 'Total_amount'])
-        df2 = pd.read_csv('csv/states.csv')
-        df1.State = df2
+        df_states = pd.read_csv('csv/states.csv')
+        df1.State = df_states
 
         fig = px.choropleth(df1,geojson="https://gist.githubusercontent.com/jbrobst/56c13bbbf9d97d187fea01ca62ea5112/raw/e388c4cae20aa53cb5090210a42ebb9b765c0a36/india_states.geojson",
                     featureidkey='properties.ST_NM',
@@ -231,5 +304,26 @@ elif choose == "India Geo":
                     color='Total_amount',
                     color_continuous_scale='Reds')
         
+        fig.update_geos(fitbounds="locations", visible=False)
+        st.plotly_chart(fig,use_container_width=True)
+        
+    if s_type == "Users":
+        st.markdown("## :green[All State - User App Opened]")
+        cursor.execute(f"""SELECT State, 
+                       SUM(RegisteredUser) as Total_Users, 
+                       SUM(AppUsed) as Total_Appopens 
+                       FROM phonpe_pulse.map_user where Year = {s_year} and Quarter = {s_quarter} 
+                       GROUP BY State ORDER BY State""")
+        df1 = pd.DataFrame(cursor.fetchall(), columns=['State', 'Total_Users','Total_Appopens'])
+        df_states = pd.read_csv('csv/states.csv')
+        df1.Total_Appopens = df1.Total_Appopens.astype(float)
+        df1.State = df_states
+        
+        fig = px.choropleth(df1,geojson="https://gist.githubusercontent.com/jbrobst/56c13bbbf9d97d187fea01ca62ea5112/raw/e388c4cae20aa53cb5090210a42ebb9b765c0a36/india_states.geojson",
+                  featureidkey='properties.ST_NM',
+                  locations='State',
+                  color='Total_Appopens',
+                  color_continuous_scale='balance')
+
         fig.update_geos(fitbounds="locations", visible=False)
         st.plotly_chart(fig,use_container_width=True)
