@@ -19,3 +19,14 @@ to display the data in an interactive and visually appealing manner.
 5. Fetch the data from the MySQL database to display in the dashboard.
 6. Provide at least 10 different dropdown options for users to select different
 facts and figures to display on the dashboard.
+
+# Extract data from PhonePe Github
+   Using Repo kibrary we can get the json files phonepe pulse github and saved it in our local machine(Clone).
+   
+Repo.clone_from("https://github.com/PhonePe/pulse.git", "/home/jeeva/Projects/python/PhonePe_Pulse/phonepe_data/")
+
+# Data Transformation
+   There is a common method (changeJsonToCsv)written in data_collection.py file, with that method, we can convert the phonepe json data in DataFrame using Pandas and Json(Inbuilt) library.
+
+# Data Insertion & Visualize
+   Once converted the JSON file to Dataframe, we can save it in Mysql database and using SELECT query fetch the appropriate fileds from each data set and display the data using plotly and stremalit library.
